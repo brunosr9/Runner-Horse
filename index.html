@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aposta de Cavalo - Infinite Runner</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui-layer">
+            <div id="score-board">Distância: <span id="score">0</span>m</div>
+            <div id="high-score-board">Recorde: <span id="high-score">0</span>m</div>
+        </div>
+
+        <div id="start-screen" class="overlay">
+            <h1>Aposta de Cavalo</h1>
+            <p>Pressione <strong>ESPAÇO</strong> para começar</p>
+            <div class="instructions">
+                <span>↑ Pular</span>
+                <span>↓ Abaixar</span>
+            </div>
+        </div>
+
+        <div id="game-over-screen" class="overlay hidden">
+            <h1>Fim de Jogo!</h1>
+            <div class="final-stats">
+                <p>Pontuação Final: <span id="final-score">0</span>m</p>
+            </div>
+            <button id="restart-button">Correr Novamente</button>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
