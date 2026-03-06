@@ -5,7 +5,9 @@ const highScoreElement = document.getElementById('high-score');
 const finalScoreElement = document.getElementById('final-score');
 const startScreen = document.getElementById('start-screen');
 const gameOverScreen = document.getElementById('game-over-screen');
+const winScreen = document.getElementById('win-screen');
 const restartButton = document.getElementById('restart-button');
+const winRestartButton = document.getElementById('win-restart-button');
 
 // Game constants
 const CANVAS_WIDTH = 800;
@@ -15,6 +17,7 @@ const INITIAL_SPEED = 6;
 const SPEED_INCREMENT = 0.1;
 const HORSE_WIDTH = 80;
 const HORSE_HEIGHT = 60;
+const WIN_SCORE = 500;
 
 // Set canvas dimensions
 canvas.width = CANVAS_WIDTH;
@@ -32,11 +35,19 @@ highScoreElement.innerText = highScore;
 const horseImage = new Image();
 horseImage.src = 'assets/horse.png';
 
-const cactusImage = new Image();
-cactusImage.src = 'assets/cactus.png';
+const horseDuckImage = new Image();
+horseDuckImage.src = 'assets/horse_duck.png';
+
+const treeImage = new Image();
+treeImage.src = 'assets/tree.png';
 
 const birdImage = new Image();
 birdImage.src = 'assets/bird.png';
+
+const backgroundImage = new Image();
+backgroundImage.src = 'assets/background.png';
+
+let bgX = 0;
 
 // Game object state
 const horse = {
@@ -48,15 +59,20 @@ const horse = {
     velocityY: 0,
     isJumping: false,
     isCrouching: false,
-    frame: 0,
+
+    // Animation properties
+    frameX: 0,
+    frameY: 0,
+    maxFrames: 4, // Supondo 4 frames horizontais na folha
+    animationTimer: 0,
+    animationSpeed: 5, // Troca a cada 5 frames do jogo (aprox 12 FPS)
 
     update() {
-        // Gravity
+        // Gravity logic
         if (this.isJumping) {
             this.velocityY += GRAVITY;
             this.y += this.velocityY;
 
-            // Ground collision
             const groundY = CANVAS_HEIGHT - this.height - 20;
             if (this.y > groundY) {
                 this.y = groundY;
@@ -64,11 +80,50 @@ const horse = {
                 this.isJumping = false;
             }
         }
+
+        // Animation logic
+        if (isGameRunning && !this.isJumping) {
+            this.animationTimer++;
+            if (this.animationTimer >= this.animationSpeed) {
+                this.frameX = (this.frameX + 1) % this.maxFrames;
+                this.animationTimer = 0;
+            }
+        } else if (this.isJumping) {
+            this.frameX = 1; // Frame de pulo
+        }
     },
 
     draw() {
         if (horseImage.complete) {
-            ctx.drawImage(horseImage, this.x, this.y, this.width, this.height);
+            ctx.save();
+
+            let bobbing = 0;
+            let stretchX = 1;
+            let stretchY = 1;
+
+            if (isGameRunning && !this.isJumping) {
+                // Efeito de galope (procedural)
+                bobbing = Math.sin(frameCount * 0.3) * 6;
+                stretchX = 1 + Math.sin(frameCount * 0.3) * 0.05;
+                stretchY = 1 - Math.sin(frameCount * 0.3) * 0.05;
+            }
+
+            const sW = horseImage.width;
+            const sH = horseImage.height;
+            const aspectRatio = sW / sH;
+            const displayWidth = this.height * aspectRatio;
+
+            // Aplica as transformações de animação
+            ctx.translate(this.x, this.y + bobbing);
+            ctx.scale(stretchX, stretchY);
+
+            ctx.drawImage(
+                horseImage,
+                0, 0, sW, sH,
+                0, 0, displayWidth, this.height
+            );
+
+            ctx.restore();
         } else {
             ctx.fillStyle = this.color;
             ctx.fillRect(this.x, this.y, this.width, this.height);
@@ -98,7 +153,7 @@ const horse = {
 let obstacles = [];
 
 function spawnObstacle() {
-    const type = Math.random() > 0.3 ? 'cactus' : 'bird';
+    const type = Math.random() > 0.3 ? 'tree' : 'bird';
     let obstacle = {
         x: CANVAS_WIDTH,
         y: 0,
@@ -108,9 +163,9 @@ function spawnObstacle() {
         speed: gameSpeed
     };
 
-    if (type === 'cactus') {
-        obstacle.width = 40;
-        obstacle.height = 50;
+    if (type === 'tree') {
+        obstacle.width = 60;
+        obstacle.height = 80;
         obstacle.y = CANVAS_HEIGHT - obstacle.height - 20;
     } else {
         obstacle.width = 40;
@@ -148,11 +203,30 @@ function checkCollision(a, b) {
 
 function drawObstacles() {
     obstacles.forEach(obs => {
-        let img = obs.type === 'cactus' ? cactusImage : birdImage;
+        let img = obs.type === 'tree' ? treeImage : birdImage;
         if (img.complete) {
-            ctx.drawImage(img, obs.x, obs.y, obs.width, obs.height);
+            ctx.save();
+            if (obs.type === 'bird') {
+                const sW = img.width;
+                const sH = img.height;
+                const aspectRatio = sW / sH;
+                const displayWidth = obs.height * aspectRatio;
+
+                // Efeito de bater asas (scaling vertical procedural)
+                const wingFlap = 1 + Math.sin(frameCount * 0.5) * 0.3;
+
+                ctx.translate(obs.x, obs.y + (obs.height * (1 - wingFlap)) / 2);
+                ctx.scale(1, wingFlap);
+                ctx.drawImage(img, 0, 0, sW, sH, 0, 0, displayWidth, obs.height);
+            } else {
+                // Árvore
+                const aspectRatio = img.width / img.height;
+                const displayWidth = obs.height * aspectRatio;
+                ctx.drawImage(img, obs.x, obs.y, displayWidth, obs.height);
+            }
+            ctx.restore();
         } else {
-            ctx.fillStyle = obs.type === 'bird' ? '#2196F3' : '#4CAF50';
+            ctx.fillStyle = obs.type === 'bird' ? '#2196F3' : '#2E7D32';
             ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
         }
     });
@@ -163,6 +237,11 @@ function updateScore() {
     if (frameCount % 10 === 0) {
         score++;
         scoreElement.innerText = score;
+
+        // Check win condition
+        if (score >= WIN_SCORE) {
+            winGame();
+        }
 
         // Increase difficulty
         if (score % 100 === 0) {
@@ -176,8 +255,23 @@ function gameLoop() {
 
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Draw ground
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    // Draw background (paralaxe suave)
+    if (backgroundImage.complete) {
+        ctx.drawImage(backgroundImage, bgX, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.drawImage(backgroundImage, bgX + CANVAS_WIDTH, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        if (isGameRunning) {
+            bgX -= gameSpeed * 0.5;
+            if (bgX <= -CANVAS_WIDTH) bgX = 0;
+        }
+    } else {
+        // Fallback para quando a imagem não carregou
+        ctx.fillStyle = '#4CAF50';
+        ctx.fillRect(0, CANVAS_HEIGHT - 20, CANVAS_WIDTH, 20);
+    }
+
+    // Draw ground line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
     ctx.beginPath();
     ctx.moveTo(0, CANVAS_HEIGHT - 20);
     ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - 20);
@@ -205,6 +299,7 @@ function startGame() {
     frameCount = 0;
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
+    winScreen.classList.add('hidden');
     gameLoop();
 }
 
@@ -218,6 +313,11 @@ function gameOver() {
         localStorage.setItem('horseRunnerHighScore', highScore);
         highScoreElement.innerText = highScore;
     }
+}
+
+function winGame() {
+    isGameRunning = false;
+    winScreen.classList.remove('hidden');
 }
 
 // Input handling
@@ -245,3 +345,4 @@ window.addEventListener('keyup', (e) => {
 });
 
 restartButton.addEventListener('click', startGame);
+winRestartButton.addEventListener('click', startGame);
